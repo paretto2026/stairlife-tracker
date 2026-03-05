@@ -116,6 +116,75 @@
 </section>
 
 <section class="card" style="margin-top:18px;">
+  <h2>Trends</h2>
+  <p class="muted">Quick view of your recent weekly and monthly totals.</p>
+
+  <div class="grid-2" style="margin-top:0;">
+    <div class="card" style="border:1px solid #eee;">
+      <h3 style="margin-top:0;">Last 8 weeks</h3>
+
+      {% if weekly|length == 0 %}
+        <p class="small">No weekly data yet.</p>
+      {% else %}
+        <table>
+          <thead>
+            <tr>
+              <th>Week</th>
+              <th class="num">Total</th>
+              <th style="width:45%;"> </th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in weekly %}
+              <tr>
+                <td>{{ r.label }}</td>
+                <td class="num">{{ r.total }}</td>
+                <td>
+                  <div class="bar-wrap">
+                    <div class="bar-fill" style="width: {{ r.bar_pct }}%;"></div>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+    </div>
+
+    <div class="card" style="border:1px solid #eee;">
+      <h3 style="margin-top:0;">Last 12 months</h3>
+
+      {% if monthly|length == 0 %}
+        <p class="small">No monthly data yet.</p>
+      {% else %}
+        <table>
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th class="num">Total</th>
+              <th style="width:45%;"> </th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in monthly %}
+              <tr>
+                <td>{{ r.label }}</td>
+                <td class="num">{{ r.total }}</td>
+                <td>
+                  <div class="bar-wrap">
+                    <div class="bar-fill" style="width: {{ r.bar_pct }}%;"></div>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<section class="card" style="margin-top:18px;">
   <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
     <h2 style="margin:0;">History</h2>
     <a href="{{ url_for('export_csv') }}" style="text-decoration:none;">
