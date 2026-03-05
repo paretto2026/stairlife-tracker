@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>StairLife Tracker</h1>
+<p class="subtle">Step 6: templates + static CSS ✅</p>
+
+<div class="grid-2">
+  <section class="card">
+    <h2>Profile</h2>
+
+    <form method="post" action="{{ url_for('save_profile') }}">
+      <label>Age (years)<br/>
+        <input name="age" value="{{ profile.age }}" inputmode="numeric" />
+      </label>
+
+      <label>Weight (kg)<br/>
+        <input name="weight" value="{{ profile.weight }}" inputmode="decimal" />
+      </label>
+
+      <label>Height (cm)<br/>
+        <input name="height" value="{{ profile.height }}" inputmode="numeric" />
+      </label>
+
+      <label>Sex<br/>
+        <select name="sex">
+          <option value="" {% if profile.sex == "" %}selected{% endif %}>— select —</option>
+          <option value="F" {% if profile.sex == "F" %}selected{% endif %}>Female</option>
+          <option value="M" {% if profile.sex == "M" %}selected{% endif %}>Male</option>
+          <option value="O" {% if profile.sex == "O" %}selected{% endif %}>Other / Prefer not to say</option>
+        </select>
+      </label>
+
+      <button type="submit">Save profile</button>
+    </form>
+
+    <div style="margin-top:14px; color:#333;">
+      <strong>Current profile:</strong><br/>
+      {{ profile_summary }}
+    </div>
+
+    <p class="muted">Stored in <code>stairlife.db</code>.</p>
+  </section>
+
+  <section class="card">
+    <h2>Add entry</h2>
+
+    <form method="post" action="{{ url_for('save_entry') }}">
+      <label>Date<br/>
+        <input type="date" name="entry_date" value="{{ today_str }}" />
+      </label>
+
+      <label>Stair climbs (count)<br/>
+        <input name="climbs" value="" inputmode="numeric" />
+      </label>
+
+      <button type="submit">Save entry</button>
+    </form>
+
+    <p class="muted">Re-entering the same date overwrites that day.</p>
+  </section>
+</div>
+
+<section class="card" style="margin-top:18px;">
+  <h2>Stats</h2>
+
+  <div class="stats-grid-5">
+    <div class="stat">
+      <div class="label">Total climbs</div>
+      <div class="value">{{ stats.total_climbs }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Tracked days</div>
+      <div class="value">{{ stats.days_tracked }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Active days</div>
+      <div class="value">{{ stats.active_days }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Average/day</div>
+      <div class="value">{{ "%.2f"|format(stats.avg_per_day) }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Consistency</div>
+      <div class="value">{{ "%.1f"|format(stats.consistency) }}%</div>
+      <div class="hint">active ÷ tracked</div>
+    </div>
+  </div>
+
+  <div class="stats-grid-4">
+    <div class="stat">
+      <div class="label">Life days gained (est.)</div>
+      <div class="value">{{ "%.0f"|format(stats.life_days_gained) }}</div>
+      <div class="hint">Model category: {{ stats.model_category }} flights/day</div>
+    </div>
+    <div class="stat">
+      <div class="label">All-cause mortality risk reduction</div>
+      <div class="value">{{ "%.1f"|format(stats.all_cause_reduction_pct) }}%</div>
+      <div class="hint">vs 0 flights/day (v0)</div>
+    </div>
+    <div class="stat">
+      <div class="label">CVD mortality risk reduction</div>
+      <div class="value">{{ "%.1f"|format(stats.cvd_reduction_pct) }}%</div>
+      <div class="hint">negative = no reduction</div>
+    </div>
+    <div class="stat">
+      <div class="label">Average vs max day</div>
+      <div class="value">{{ "%.1f"|format(stats.avg_vs_max_pct) }}%</div>
+      <div class="hint">avg/day ÷ max(day)</div>
+    </div>
+  </div>
+
+  <p class="muted">
+    v0 note: observational model (UK Biobank). We map your Average/day to a category and display that category’s HR/RMST-based estimates.
+  </p>
+</section>
+
+<section class="card" style="margin-top:18px;">
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+    <h2 style="margin:0;">History</h2>
+    <a href="{{ url_for('export_csv') }}" style="text-decoration:none;">
+      <button type="button">Export CSV</button>
+    </a>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+  <th>Year</th>
+  <th>Month</th>
+  <th>Weekday</th>
+  <th>Date</th>
+  <th class="num">Climbs</th>
+  <th class="num">Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if entries|length == 0 %}
+        <tr>
+          <td colspan="6" style="padding:10px; color:#666;">No entries yet.</td>
+        </tr>
+      {% else %}
+        {% for e in entries %}
+          <tr>
+  <td>{{ e.year }}</td>
+  <td>{{ e.month }}</td>
+  <td>{{ e.weekday }}</td>
+  <td>{{ e.date }}</td>
+  <td class="num">{{ e.climbs }}</td>
+  <td class="num">
+    <form method="post" action="{{ url_for('delete_entry') }}"
+          onsubmit="return confirm('Delete entry for {{ e.date }}?');"
+          style="margin:0;">
+      <input type="hidden" name="entry_date" value="{{ e.date }}" />
+      <button type="submit">Delete</button>
+    </form>
+  </td>
+          </tr>
+        {% endfor %}
+      {% endif %}
+    </tbody>
+  </table>
+</section>
+
+{% endblock %}

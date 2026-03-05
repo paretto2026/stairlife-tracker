@@ -2,7 +2,7 @@ import sqlite3
 from datetime import date, datetime
 from pathlib import Path
 
-from flask import Flask, request, redirect, url_for
+from flask import Flask, request, redirect, url_for, render_template, Response
 
 app = Flask(__name__)
 
@@ -71,8 +71,8 @@ def load_entries() -> list[dict]:
         try:
             dt = datetime.strptime(d, "%Y-%m-%d").date()
             year = dt.year
-            month = dt.strftime("%b")    # Jan, Feb...
-            weekday = dt.strftime("%a")  # Mon, Tue...
+            month = dt.strftime("%b")
+            weekday = dt.strftime("%a")
         except ValueError:
             year = ""
             month = ""
@@ -82,7 +82,6 @@ def load_entries() -> list[dict]:
 
 
 # ---- v0 estimation model (UK Biobank, Sanchez-Lastra et al., 2021) ----
-# Category thresholds are flights/day; we interpret "climbs" as flights for now.
 MODEL = [
     # (min_flights_inclusive, max_flights_inclusive_or_None, label, all_cause_hr, cvd_hr, rmst_days)
     (0, 0, "0", 1.00, 1.00, 0.0),
@@ -94,7 +93,6 @@ MODEL = [
 
 
 def estimate_from_avg(avg_flights: float) -> dict:
-    # Find matching category for avg_flights
     flights = max(0.0, avg_flights)
     chosen = MODEL[0]
     for (mn, mx, label, hr_all, hr_cvd, rmst) in MODEL:
@@ -107,10 +105,9 @@ def estimate_from_avg(avg_flights: float) -> dict:
                 break
 
     _, _, label, hr_all, hr_cvd, rmst = chosen
-
     all_cause_reduction = (1.0 - hr_all) * 100.0
     cvd_reduction = (1.0 - hr_cvd) * 100.0
-    life_days_gained = max(0.0, rmst)  # do not show negative as "gained"
+    life_days_gained = max(0.0, rmst)
 
     return {
         "category": label,
@@ -147,36 +144,14 @@ def compute_stats(entries: list[dict]) -> dict:
     }
 
 
-# Initialize DB on startup
 init_db()
 
 
 @app.get("/")
 def index():
-    today_str = date.today().isoformat()
-
     profile = load_profile()
     entries_sorted = load_entries()
     stats = compute_stats(entries_sorted)
-
-    rows_html = ""
-    for e in entries_sorted:
-        rows_html += f"""
-          <tr>
-            <td style="padding:8px; border-bottom:1px solid #eee;">{e["year"]}</td>
-            <td style="padding:8px; border-bottom:1px solid #eee;">{e["month"]}</td>
-            <td style="padding:8px; border-bottom:1px solid #eee;">{e["weekday"]}</td>
-            <td style="padding:8px; border-bottom:1px solid #eee;">{e["date"]}</td>
-            <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">{e["climbs"]}</td>
-          </tr>
-        """
-
-    if not rows_html:
-        rows_html = """
-          <tr>
-            <td colspan="5" style="padding:10px; color:#666;">No entries yet.</td>
-          </tr>
-        """
 
     profile_summary = (
         f"Age: {profile['age'] or '—'}, "
@@ -185,161 +160,15 @@ def index():
         f"Sex: {sex_label(profile['sex'])}"
     )
 
-    # Small helper: show negative CVD as "−x.x%" correctly
-    cvd_pct = stats["cvd_reduction_pct"]
-
-    return f"""
-    <!doctype html>
-    <html lang="en">
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>StairLife Tracker</title>
-      </head>
-      <body style="font-family: system-ui; margin: 40px; max-width: 1100px;">
-        <h1 style="margin-bottom: 6px;">StairLife Tracker</h1>
-        <p style="margin-top: 0; color:#444;">Step 5: life days + risk model (v0) ✅</p>
-
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top: 18px;">
-          <section style="border:1px solid #ddd; border-radius:12px; padding:16px;">
-            <h2 style="margin-top:0;">Profile</h2>
-
-            <form method="post" action="/profile">
-              <label>Age (years)<br/>
-                <input name="age" value="{profile["age"]}" inputmode="numeric"
-                       style="width:100%; padding:10px; margin:6px 0 10px;" />
-              </label>
-
-              <label>Weight (kg)<br/>
-                <input name="weight" value="{profile["weight"]}" inputmode="decimal"
-                       style="width:100%; padding:10px; margin:6px 0 10px;" />
-              </label>
-
-              <label>Height (cm)<br/>
-                <input name="height" value="{profile["height"]}" inputmode="numeric"
-                       style="width:100%; padding:10px; margin:6px 0 10px;" />
-              </label>
-
-              <label>Sex<br/>
-                <select name="sex" style="width:100%; padding:10px; margin:6px 0 10px;">
-                  <option value="" {"selected" if profile["sex"] == "" else ""}>— select —</option>
-                  <option value="F" {"selected" if profile["sex"] == "F" else ""}>Female</option>
-                  <option value="M" {"selected" if profile["sex"] == "M" else ""}>Male</option>
-                  <option value="O" {"selected" if profile["sex"] == "O" else ""}>Other / Prefer not to say</option>
-                </select>
-              </label>
-
-              <button type="submit" style="padding:10px 14px;">Save profile</button>
-            </form>
-
-            <div style="margin-top:14px; color:#333;">
-              <strong>Current profile:</strong><br/>
-              {profile_summary}
-            </div>
-
-            <p style="margin-top:12px; color:#666;">
-              Stored in <code>stairlife.db</code>.
-            </p>
-          </section>
-
-          <section style="border:1px solid #ddd; border-radius:12px; padding:16px;">
-            <h2 style="margin-top:0;">Add entry</h2>
-
-            <form method="post" action="/entry">
-              <label>Date<br/>
-                <input type="date" name="entry_date" value="{today_str}"
-                       style="width:100%; padding:10px; margin:6px 0 10px;" />
-              </label>
-
-              <label>Stair climbs (count)<br/>
-                <input name="climbs" value="" inputmode="numeric"
-                       style="width:100%; padding:10px; margin:6px 0 10px;" />
-              </label>
-
-              <button type="submit" style="padding:10px 14px;">Save entry</button>
-            </form>
-
-            <p style="margin-top:12px; color:#666;">
-              Re-entering the same date overwrites that day.
-            </p>
-          </section>
-        </div>
-
-        <section style="margin-top: 18px; border:1px solid #ddd; border-radius:12px; padding:16px;">
-          <h2 style="margin-top:0;">Stats</h2>
-
-          <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom:10px;">
-            <div style="border:1px solid #eee; border-radius:12px; padding:12px;">
-              <div style="color:#666; font-size:12px;">Total climbs</div>
-              <div style="font-size:22px; font-weight:700;">{stats["total_climbs"]}</div>
-            </div>
-            <div style="border:1px solid #eee; border-radius:12px; padding:12px;">
-              <div style="color:#666; font-size:12px;">Tracked days</div>
-              <div style="font-size:22px; font-weight:700;">{stats["days_tracked"]}</div>
-            </div>
-            <div style="border:1px solid #eee; border-radius:12px; padding:12px;">
-              <div style="color:#666; font-size:12px;">Active days</div>
-              <div style="font-size:22px; font-weight:700;">{stats["active_days"]}</div>
-            </div>
-            <div style="border:1px solid #eee; border-radius:12px; padding:12px;">
-              <div style="color:#666; font-size:12px;">Average/day</div>
-              <div style="font-size:22px; font-weight:700;">{stats["avg_per_day"]:.2f}</div>
-            </div>
-            <div style="border:1px solid #eee; border-radius:12px; padding:12px;">
-              <div style="color:#666; font-size:12px;">Consistency</div>
-              <div style="font-size:22px; font-weight:700;">{stats["consistency"]:.1f}%</div>
-            </div>
-          </div>
-
-          <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
-            <div style="border:1px solid #eee; border-radius:12px; padding:12px;">
-              <div style="color:#666; font-size:12px;">Life days gained (est.)</div>
-              <div style="font-size:22px; font-weight:700;">{stats["life_days_gained"]:.0f}</div>
-              <div style="color:#777; font-size:12px;">Model category: {stats["model_category"]} flights/day</div>
-            </div>
-            <div style="border:1px solid #eee; border-radius:12px; padding:12px;">
-              <div style="color:#666; font-size:12px;">All-cause mortality risk reduction</div>
-              <div style="font-size:22px; font-weight:700;">{stats["all_cause_reduction_pct"]:.1f}%</div>
-              <div style="color:#777; font-size:12px;">vs 0 flights/day (v0)</div>
-            </div>
-            <div style="border:1px solid #eee; border-radius:12px; padding:12px;">
-              <div style="color:#666; font-size:12px;">CVD mortality risk reduction</div>
-              <div style="font-size:22px; font-weight:700;">{cvd_pct:.1f}%</div>
-              <div style="color:#777; font-size:12px;">negative = no reduction</div>
-            </div>
-            <div style="border:1px solid #eee; border-radius:12px; padding:12px;">
-              <div style="color:#666; font-size:12px;">Average vs max day</div>
-              <div style="font-size:22px; font-weight:700;">{stats["avg_vs_max_pct"]:.1f}%</div>
-              <div style="color:#777; font-size:12px;">avg/day ÷ max(day)</div>
-            </div>
-          </div>
-
-          <p style="margin:10px 0 0; color:#666; font-size: 13px;">
-            v0 note: This is an observational model (UK Biobank, at-home stair flights/day). We map your Average/day to a category and display the category’s HR/RMST-based estimates.
-          </p>
-        </section>
-
-        <section style="margin-top: 18px; border:1px solid #ddd; border-radius:12px; padding:16px;">
-          <h2 style="margin-top:0;">History</h2>
-
-          <table style="width:100%; border-collapse: collapse;">
-            <thead>
-              <tr>
-                <th style="text-align:left; padding:8px; border-bottom:2px solid #ddd;">Year</th>
-                <th style="text-align:left; padding:8px; border-bottom:2px solid #ddd;">Month</th>
-                <th style="text-align:left; padding:8px; border-bottom:2px solid #ddd;">Weekday</th>
-                <th style="text-align:left; padding:8px; border-bottom:2px solid #ddd;">Date</th>
-                <th style="text-align:right; padding:8px; border-bottom:2px solid #ddd;">Climbs</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows_html}
-            </tbody>
-          </table>
-        </section>
-      </body>
-    </html>
-    """
+    return render_template(
+        "index.html",
+        title="StairLife Tracker",
+        today_str=date.today().isoformat(),
+        profile=profile,
+        profile_summary=profile_summary,
+        stats=stats,
+        entries=entries_sorted,
+    )
 
 
 @app.post("/profile")
@@ -360,6 +189,53 @@ def save_profile():
 
 @app.post("/entry")
 def save_entry():
+    entry_date = (request.form.get("entry_date") or "").strip()
+    climbs = safe_int((request.form.get("climbs") or "").strip(), default=0)
+
+    if climbs < 0:
+        climbs = 0
+
+    if entry_date:
+        with get_conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO entries (entry_date, climbs)
+                VALUES (?, ?)
+                ON CONFLICT(entry_date) DO UPDATE SET climbs = excluded.climbs
+                """,
+                (entry_date, climbs),
+            )
+
+    return redirect(url_for("index"))
+
+
+@app.post("/entry/delete")
+def delete_entry():
+    entry_date = (request.form.get("entry_date") or "").strip()
+
+    if entry_date:
+        with get_conn() as conn:
+            conn.execute(
+                "DELETE FROM entries WHERE entry_date = ?",
+                (entry_date,),
+            )
+
+    return redirect(url_for("index"))
+
+
+@app.get("/export.csv")
+def export_csv():
+    entries = load_entries()  # already sorted DESC
+    lines = ["date,year,month,weekday,climbs"]
+    for e in entries:
+        # ensure commas don't break CSV (we only have simple values here)
+        lines.append(f'{e["date"]},{e["year"]},{e["month"]},{e["weekday"]},{e["climbs"]}')
+    csv_text = "\n".join(lines) + "\n"
+    return Response(
+        csv_text,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=stairlife_export.csv"},
+    )
     entry_date = (request.form.get("entry_date") or "").strip()
     climbs = safe_int((request.form.get("climbs") or "").strip(), default=0)
     if climbs < 0:
