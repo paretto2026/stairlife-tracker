@@ -13,3 +13,9 @@ secrets.json
 
 # OS
 .DS_Store
+
+# Local database
+stairlife.db
+*.db
+*.sqlite
+*.sqlite3
