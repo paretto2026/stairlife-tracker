@@ -308,20 +308,3 @@ def export_csv():
         mimetype="text/csv",
         headers={"Content-Disposition": "attachment; filename=stairlife_export.csv"},
     )
-    entry_date = (request.form.get("entry_date") or "").strip()
-    climbs = safe_int((request.form.get("climbs") or "").strip(), default=0)
-    if climbs < 0:
-        climbs = 0
-
-    if entry_date:
-        with get_conn() as conn:
-            conn.execute(
-                """
-                INSERT INTO entries (entry_date, climbs)
-                VALUES (?, ?)
-                ON CONFLICT(entry_date) DO UPDATE SET climbs = excluded.climbs
-                """,
-                (entry_date, climbs),
-            )
-
-    return redirect(url_for("index"))
