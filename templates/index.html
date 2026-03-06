@@ -8,7 +8,7 @@
   <section class="card">
     <h2>Profile</h2>
 
-    <form method="post" action="{{ url_for('save_profile') }}">
+    <form method="post" action="{{ url_for('main.save_profile') }}">
       <label>Age (years)<br/>
         <input name="age" value="{{ profile.age }}" inputmode="numeric" />
       </label>
@@ -44,7 +44,7 @@
   <section class="card">
     <h2>Add entry</h2>
 
-    <form method="post" action="{{ url_for('save_entry') }}">
+    <form method="post" action="{{ url_for('main.save_entry') }}">
       <label>Date<br/>
         <input type="date" name="entry_date" value="{{ today_str }}" />
       </label>
@@ -187,7 +187,7 @@
 <section class="card" style="margin-top:18px;">
   <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
     <h2 style="margin:0;">History</h2>
-    <a href="{{ url_for('export_csv') }}" style="text-decoration:none;">
+    <a href="{{ url_for('main.export_csv') }}" style="text-decoration:none;">
       <button type="button">Export CSV</button>
     </a>
   </div>
@@ -217,7 +217,7 @@
   <td>{{ e.date }}</td>
   <td class="num">{{ e.climbs }}</td>
   <td class="num">
-    <form method="post" action="{{ url_for('delete_entry') }}"
+    <form method="post" action="{{ url_for('main.delete_entry') }}"
           onsubmit="return confirm('Delete entry for {{ e.date }}?');"
           style="margin:0;">
       <input type="hidden" name="entry_date" value="{{ e.date }}" />
