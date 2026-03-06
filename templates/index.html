@@ -2,7 +2,6 @@
 {% block content %}
 
 <h1>StairLife Tracker</h1>
-<p class="subtle">Step 6: templates + static CSS ✅</p>
 
 <div class="grid-2">
   <section class="card">
@@ -11,14 +10,6 @@
     <form method="post" action="{{ url_for('main.save_profile') }}">
       <label>Age (years)<br/>
         <input name="age" value="{{ profile.age }}" inputmode="numeric" />
-      </label>
-
-      <label>Weight (kg)<br/>
-        <input name="weight" value="{{ profile.weight }}" inputmode="decimal" />
-      </label>
-
-      <label>Height (cm)<br/>
-        <input name="height" value="{{ profile.height }}" inputmode="numeric" />
       </label>
 
       <label>Sex<br/>
@@ -38,7 +29,6 @@
       {{ profile_summary }}
     </div>
 
-    <p class="muted">Stored in <code>stairlife.db</code>.</p>
   </section>
 
   <section class="card">
@@ -110,9 +100,6 @@
     </div>
   </div>
 
-  <p class="muted">
-    v0 note: observational model (UK Biobank). We map your Average/day to a category and display that category’s HR/RMST-based estimates.
-  </p>
 </section>
 
 <section class="card" style="margin-top:18px;">

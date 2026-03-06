@@ -39,8 +39,6 @@ def index():
 
     profile_summary = (
         f"Age: {profile['age'] or '—'}, "
-        f"Weight: {profile['weight'] or '—'} kg, "
-        f"Height: {profile['height'] or '—'} cm, "
         f"Sex: {sex_label(profile['sex'])}"
     )
 
